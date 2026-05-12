@@ -1,6 +1,8 @@
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { CSRF_SECRET_COOKIE } from "@/lib/csrf";
+import { randomBytes } from "crypto";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -8,6 +10,17 @@ export async function updateSession(request: NextRequest) {
       headers: request.headers,
     },
   });
+
+  // Ensure CSRF secret exists
+  if (!request.cookies.get(CSRF_SECRET_COOKIE)) {
+    const secret = randomBytes(32).toString('hex');
+    response.cookies.set(CSRF_SECRET_COOKIE, secret, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

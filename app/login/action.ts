@@ -22,5 +22,5 @@ export async function login(prevState: any, formData: FormData) {
     return { message: "Invalid email or password." };
   }
 
-  redirect("/form");
+  redirect("/dashboard");
 }

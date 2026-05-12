@@ -35,6 +35,7 @@ import { redirect } from 'next/navigation'
 import { decapitalize } from '@/lib/capitalize'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { LayoutDashboard, LogOut } from 'lucide-react'
 
 import { logout } from './logout';
 
@@ -96,9 +97,18 @@ export default function Preferences() {
 			className='min-h-screen bg-linear-to-br from-emerald-50 via-blue-50 to-purple-50 py-6 sm:py-12 px-4 sm:px-6 lg:px-8'
 		>
 			<div className='max-w-2xl mx-auto'>
-				<div className="flex justify-end">
+				<div className="flex justify-between items-center mb-6">
+					<Button asChild variant="ghost" className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100/50 gap-2">
+						<Link href="/dashboard">
+							<LayoutDashboard className="w-4 h-4" />
+							Back to Dashboard
+						</Link>
+					</Button>
 					<form action={logout}>
-						<Button type="submit">Logout</Button>
+						<Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2">
+							<LogOut className="w-4 h-4" />
+							Logout
+						</Button>
 					</form>
 				</div>
 				<FieldSet className='bg-white rounded-2xl shadow-lg p-8 sm:p-12'>

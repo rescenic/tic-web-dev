@@ -18,7 +18,7 @@ export async function register(prevState: any, formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/form`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/dashboard`,
     },
   });
 
@@ -27,8 +27,8 @@ export async function register(prevState: any, formData: FormData) {
   }
 
   if (data.user) {
-    // User created successfully, redirect to form
-    redirect("/form");
+    // User created successfully, redirect to dashboard
+    redirect("/dashboard");
   } else {
     // Email confirmation required
     return { message: "Check your email for confirmation link!" };

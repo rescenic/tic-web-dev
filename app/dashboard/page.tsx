@@ -24,7 +24,27 @@ export default async function DashboardPage() {
     .order("week_start_date", { ascending: false });
 
   if (error) {
-    console.error("Error fetching meal plans:", error);
+    console.error("Error fetching meal plans:", JSON.stringify(error, null, 2));
+    // If the table doesn't exist, we should handle it gracefully
+    if (error.code === "PGRST116" || error.code === "42P01") {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+          <div className="bg-red-50 p-6 rounded-xl border border-red-100 max-w-md">
+            <h2 className="text-xl font-bold text-red-800 mb-2">Database Not Ready</h2>
+            <p className="text-red-600 mb-4">
+              The `meal_plans` table was not found. Please make sure to run the database migrations in your Supabase project.
+            </p>
+            <div className="bg-white p-3 rounded border border-red-200 text-xs text-left overflow-auto font-mono">
+              Error Code: {error.code}<br/>
+              Message: {error.message}
+            </div>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/">Back to Home</Link>
+          </Button>
+        </div>
+      );
+    }
   }
 
   const currentPlan = mealPlans?.[0];
