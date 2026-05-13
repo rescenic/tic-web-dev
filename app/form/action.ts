@@ -5,7 +5,9 @@ import { capitalize } from '@/lib/capitalize'
 import { clean } from '@/lib/jsoncleaner'
 import { createClient } from '@/utils/supabase/server'
 
-export const input = async (prevState: any, formData: FormData) => {
+import { MealInsert } from "@/types/database";
+
+export async function input(prevState: any, formData: FormData) {
 	const goal = capitalize(formData.get('goal')?.toString() as string)
 	const calories = formData.get('calories')
 	const diet = capitalize(formData.get('diet')?.toString() as string)
@@ -33,16 +35,17 @@ export const input = async (prevState: any, formData: FormData) => {
 		const startTime = Date.now()
 		try {
 			console.log(`Trying AI model: ${model}...`)
-			
+
 			// Increased timeout to 30s as free models can be slow
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 30000); 
+			const timeoutId = setTimeout(() => controller.abort(), 30000);
 
 			try {
 				response = await ai.chat.send({
 					chatRequest: {
 						model: model,
-						messages: [{ role: 'user', content: `Generate a 7-day meal plan with the following parameters:
+						messages: [{
+							role: 'user', content: `Generate a 7-day meal plan with the following parameters:
 
 	Goal: ${goal}
 	Daily Calories: ${calories} kcal
@@ -113,7 +116,7 @@ export const input = async (prevState: any, formData: FormData) => {
 
 	const content = response.choices[0].message.content
 	const cleanedContent = clean(content)
-	
+
 	let planData;
 	try {
 		planData = JSON.parse(cleanedContent)
@@ -142,7 +145,7 @@ export const input = async (prevState: any, formData: FormData) => {
 			throw new Error("Failed to create meal plan record.")
 		}
 
-		const mealsToInsert: any[] = []
+		const mealsToInsert: MealInsert[] = []
 		if (planData.days && Array.isArray(planData.days)) {
 			planData.days.forEach((day: any, index: number) => {
 				const dayNumber = index + 1
@@ -152,7 +155,7 @@ export const input = async (prevState: any, formData: FormData) => {
 							mealsToInsert.push({
 								meal_plan_id: plan.id,
 								day_number: dayNumber,
-								meal_type: mealType,
+								meal_type: mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
 								name: meal.name,
 								description: meal.description || "",
 								calories: meal.calories || 0,
@@ -172,11 +175,20 @@ export const input = async (prevState: any, formData: FormData) => {
 			if (mealsError) {
 				console.error("Error inserting meals:", mealsError)
 				// Compensating logic: delete the orphan plan
-				await supabase.from("meal_plans").delete().eq("id", plan.id)
+				try {
+					await supabase.from("meal_plans").delete().eq("id", plan.id)
+				} catch (cleanupError) {
+					console.error(`Failed to cleanup orphan meal plan ${plan.id}:`, cleanupError)
+				}
 				throw new Error("Failed to save meals to the plan.")
 			}
 		}
 	}
+
+	const userEmail = user?.email || 'User'
+	const username = (userEmail && typeof userEmail === 'string' && userEmail.includes('@')) 
+		? userEmail.split('@')[0] 
+		: userEmail
 
 	return {
 		...prevState,
@@ -188,7 +200,8 @@ export const input = async (prevState: any, formData: FormData) => {
 			allergies,
 			cuisines,
 			dislikes,
-			username: user?.email?.split('@')[0] || 'User',
+			email: userEmail,
+			username,
 		},
 	}
 }

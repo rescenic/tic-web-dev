@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MealToggle from "./meal-toggle";
 import { Meal, MealPlan } from "@/types/database";
+import { PostgrestError } from "@supabase/supabase-js";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
   const { data: mealPlans, error } = await supabase
     .from("meal_plans")
     .select("*, meals(*)")
-    .order("week_start_date", { ascending: false }) as { data: MealPlan[] | null, error: any };
+    .order("week_start_date", { ascending: false }) as { data: MealPlan[] | null, error: PostgrestError | null };
 
   if (error) {
     console.error("Error fetching meal plans:", JSON.stringify(error, null, 2));
@@ -93,7 +94,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-900">
-              {currentPlan?.meals ? currentPlan.meals.reduce((acc: number, m: Meal) => acc + (Number(m.calories) || 0), 0).toFixed(0) : 0} kcal
+              {currentPlan?.meals ? currentPlan.meals.reduce((acc: number, m: Meal) => acc + (Number(m.calories) || 0), 0).toFixed(0) : (0).toFixed(0)} kcal
             </div>
             <p className="text-xs text-emerald-600 mt-1">Total weekly target</p>
           </CardContent>
@@ -136,18 +137,32 @@ export default async function DashboardPage() {
                 const dayMeals = currentPlan.meals!.filter((m: Meal) => m.day_number === dayNum);
                 if (dayMeals.length === 0) return null;
                 
+                const dayDate = new Date(currentPlan.week_start_date);
+                dayDate.setDate(dayDate.getDate() + (dayNum - 1));
+                const formattedDate = dayDate.toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                });
+
                 return (
-                  <div key={dayNum} className="p-6 hover:bg-emerald-50/30 transition-colors">
+                  <div key={dayNum} className="p-6 hover:bg-emerald-50/30 transition-colors relative">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-emerald-800 text-lg">Day {dayNum}</h3>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-bold text-emerald-800 text-lg">Day {dayNum}</h3>
+                        <span className="text-sm text-emerald-600 font-medium px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
+                          {formattedDate}
+                        </span>
+                      </div>
                       <Link 
                         href={`/meals/${dayNum}`} 
-                        className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:underline"
+                        className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:underline relative z-20"
                       >
                         View Details <ArrowRight className="w-3 h-3" />
                       </Link>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Link href={`/meals/${dayNum}`} className="absolute inset-0 z-0" aria-hidden="true" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
                       {dayMeals.sort((a: Meal, b: Meal) => {
                         const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
                         return (order[a.meal_type as keyof typeof order] || 5) - (order[b.meal_type as keyof typeof order] || 5);

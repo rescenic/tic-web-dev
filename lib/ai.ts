@@ -29,8 +29,9 @@ export async function generateContent(prompt: string): Promise<string> {
       throw new Error("OpenRouter returned an empty response.");
     }
     return content;
-  } catch (openRouterError: any) {
-    console.warn("OpenRouter error occurred, falling back to Gemini:", openRouterError.message);
+  } catch (openRouterError: unknown) {
+    const errorMessage = openRouterError instanceof Error ? openRouterError.message : String(openRouterError)
+    console.warn("OpenRouter error occurred, falling back to Gemini:", errorMessage);
     
     // Fallback to Gemini
     try {
@@ -38,8 +39,9 @@ export async function generateContent(prompt: string): Promise<string> {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (geminiError: any) {
-      console.error("Both AI providers failed:", geminiError.message);
+    } catch (geminiError: unknown) {
+      const finalError = geminiError instanceof Error ? geminiError.message : String(geminiError)
+      console.error("Both AI providers failed:", finalError);
       throw new Error("All AI providers are currently unavailable.");
     }
   }

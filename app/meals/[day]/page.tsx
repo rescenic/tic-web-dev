@@ -36,30 +36,19 @@ import {
 import { regenerateMealAction } from '../action'
 import { clean } from '@/lib/jsoncleaner'
 import Cookies from 'js-cookie'
+import { createClient } from '@/utils/supabase/client'
+import { Meal, MealPlan } from '@/types/database'
 
 export default function Meals() {
+	const supabase = createClient()
 	const [preferences, setPreferences] = useState<any>(undefined)
 	const [meals, updateMeals] = useImmer<any>(undefined)
 	const [average, setAverage] = useState<any>(undefined)
 	const [mealAlt, setMealAlt] = useState<any>(undefined)
 	const day = Number(usePathname().replace('/meals/', ''))
+	const [baseDate, setBaseDate] = useState<Date | undefined>(undefined)
 	const [date, setDate] = useState<Date | undefined>(undefined)
-
-	useEffect(() => {
-		try {
-			const now = localStorage.getItem('now')
-			if (now) {
-				const parsedDate = new Date(now)
-				if (!isNaN(parsedDate.getTime())) {
-					setDate(parsedDate)
-					return
-				}
-			}
-		} catch (e) {
-			console.error("Error reading date from localStorage:", e)
-		}
-		setDate(new Date())
-	}, [])
+	const [loading, setLoading] = useState(true)
 
 	const initialized = useRef(false)
 	const [open, setOpen] = useState(false)
@@ -74,39 +63,111 @@ export default function Meals() {
 	const [regLoading, setRegLoading] = useState(false)
 	const [isReg, setIsReg] = useState(false)
 
+	const handleResize = () => setIsSmallScreen(window.innerWidth < 1024)
+
 	useEffect(() => {
-		const handleResize = () => setIsSmallScreen(window.innerWidth < 1024)
 		handleResize() // Set initial state
 		window.addEventListener('resize', handleResize)
 		return () => window.removeEventListener('resize', handleResize)
 	}, [])
 
 	useEffect(() => {
-		if (!initialized.current && date) {
-			if (localStorage.getItem('preferences')) {
-				const prefs = JSON.parse(localStorage.getItem('preferences') as string)
-				setPreferences(prefs)
-				
-				updateMeals(
-					JSON.parse(localStorage.getItem('meals') as string).days[day - 1]
-						.meals
-				)
-				setAverage(
-					JSON.parse(localStorage.getItem('meals') as string)
-						.average_daily_nutrition
-				)
-			} else redirect('/form')
+		async function fetchData() {
+			setLoading(true)
+			const { data: { user } } = await supabase.auth.getUser()
 			
-			// Set the date for the current day correctly
-			const newDate = new Date(date)
+			if (!user) {
+				redirect('/login')
+				return
+			}
+
+			// Fetch the latest meal plan from Supabase
+			const { data: mealPlans, error: planError } = await supabase
+				.from('meal_plans')
+				.select('*, meals(*)')
+				.eq('user_id', user.id)
+				.order('created_at', { ascending: false })
+				.limit(1)
+
+			if (planError || !mealPlans || mealPlans.length === 0) {
+				console.error("Error fetching meal plan from Supabase:", planError)
+				// Fallback to localStorage if Supabase fails or is empty
+				const savedMeals = localStorage.getItem('meals')
+				if (savedMeals) {
+					const mealData = JSON.parse(savedMeals)
+					if (mealData.days && mealData.days[day - 1]) {
+						updateMeals(mealData.days[day - 1].meals)
+						setAverage(mealData.average_daily_nutrition)
+					}
+				} else {
+					redirect('/form')
+				}
+			} else {
+				const plan = mealPlans[0] as MealPlan
+				const dayMeals = plan.meals?.filter(m => m.day_number === day)
+				
+				if (dayMeals && dayMeals.length > 0) {
+					// Transform Supabase meals back into the format the UI expects
+					const mealMap: any = {}
+					dayMeals.forEach(m => {
+						mealMap[m.meal_type] = {
+							name: m.name,
+							description: m.description,
+							calories: m.calories,
+							proteins: m.proteins,
+							carbs: m.carbs,
+							fats: m.fats,
+							recipe: m.recipe
+						}
+					})
+					updateMeals(mealMap)
+					
+					// Set base date from the plan's start date
+					const startDate = new Date(plan.week_start_date)
+					setBaseDate(startDate)
+					
+					// Calculate average daily nutrition from all meals in the plan
+					if (plan.meals && plan.meals.length > 0) {
+						const totals = plan.meals.reduce((acc, m) => ({
+							calories: acc.calories + (Number(m.calories) || 0),
+							proteins: acc.proteins + (Number(m.proteins) || 0),
+							carbs: acc.carbs + (Number(m.carbs) || 0),
+							fats: acc.fats + (Number(m.fats) || 0)
+						}), { calories: 0, proteins: 0, carbs: 0, fats: 0 })
+
+						setAverage({
+							calories: (totals.calories / 7).toFixed(0),
+							proteins: (totals.proteins / 7).toFixed(0),
+							carbs: (totals.carbs / 7).toFixed(0),
+							fats: (totals.fats / 7).toFixed(0)
+						})
+					}
+				}
+			}
+
+			// Always load preferences from localStorage as they contain UI settings
+			const savedPreferences = localStorage.getItem('preferences')
+			if (savedPreferences) {
+				setPreferences(JSON.parse(savedPreferences))
+			} else {
+				setPreferences({ email: user.email })
+			}
+
+			setLoading(false)
+		}
+
+		fetchData()
+	}, [day])
+
+	useEffect(() => {
+		if (baseDate) {
+			const newDate = new Date(baseDate)
 			newDate.setDate(newDate.getDate() + (day - 1))
 			setDate(newDate)
-			
-			initialized.current = true
 		}
-	}, [day, date, setPreferences, updateMeals])
+	}, [day, baseDate])
 
-	if (!date) {
+	if (loading || !date) {
 		return (
 			<div className='min-h-screen bg-emerald-50 flex items-center justify-center'>
 				<div className='animate-pulse text-emerald-600 font-medium'>
@@ -119,6 +180,9 @@ export default function Meals() {
 	const paginations: JSX.Element[] = []
 
 	for (let index = 1; index < 8; index++) {
+		const paginationDate = new Date(baseDate!)
+		paginationDate.setDate(paginationDate.getDate() + (index - 1))
+
 		paginations.push(
 			<PaginationItem key={index}>
 				<PaginationLink
@@ -126,11 +190,7 @@ export default function Meals() {
 					isActive={day === index}
 					className='w-fit px-2'
 				>
-					{new Date(
-						date?.getFullYear() as number,
-						date?.getMonth() as number,
-						date?.getDate() as number + index - day
-					).toLocaleDateString('en-US', {
+					{paginationDate.toLocaleDateString('en-US', {
 						weekday: 'long',
 					})}
 				</PaginationLink>
@@ -151,75 +211,96 @@ export default function Meals() {
 
 	const generatePdf = async (isShare = false) => {
 		if (
-			breakfastRef.current &&
-			lunchRef.current &&
-			dinnerRef.current &&
-			snackRef.current
-		) {
-			if (!isShare) setPdfLoading(true)
-			else setShareLoading(true)
+			!breakfastRef.current ||
+			!lunchRef.current ||
+			!dinnerRef.current ||
+			!snackRef.current
+		) return
 
+		if (!isShare) setPdfLoading(true)
+		else setShareLoading(true)
+
+		try {
 			const { default: html2canvas } = await import('html2canvas-pro')
 			const { default: jsPDF } = await import('jspdf')
 
 			const pdf = new jsPDF({ format: 'a5', unit: 'mm' })
 			const refs = [breakfastRef, lunchRef, dinnerRef, snackRef]
 			const mealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+			let successCount = 0
 
 			for (let i = 0; i < refs.length; i++) {
 				const element = refs[i].current
 				if (!element) continue
 
-				const canvas = await html2canvas(element, {
-					scale: 2,
-					useCORS: true,
-					backgroundColor: '#ffffff',
-				})
-				
-				if (i > 0) pdf.addPage()
-				
-				const imgData = canvas.toDataURL('image/png')
-				const pdfWidth = pdf.internal.pageSize.getWidth()
-				const pdfHeight = pdf.internal.pageSize.getHeight()
-				
-				// Add a nice header to each page
-				pdf.setFillColor(16, 185, 129) // Emerald-500
-				pdf.rect(0, 0, pdfWidth, 20, 'F')
-				pdf.setTextColor(255, 255, 255)
-				pdf.setFontSize(14)
-				pdf.setFont('helvetica', 'bold')
-				pdf.text(`Meal Plan - ${mealTypes[i]}`, 10, 13)
-				
-				// Add the meal card image
-				const imgWidth = pdfWidth - 20
-				const imgHeight = (canvas.height * imgWidth) / canvas.width
-				pdf.addImage(imgData, 'PNG', 10, 25, imgWidth, imgHeight)
-				
-				// Add footer
-				pdf.setTextColor(150, 150, 150)
-				pdf.setFontSize(8)
-				pdf.setFont('helvetica', 'normal')
-				const dateStr = date?.toLocaleDateString('en-US', { 
-					weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-				})
-				pdf.text(`Generated for ${preferences?.username || 'User'} on ${dateStr}`, 10, pdfHeight - 10)
+				try {
+					const canvas = await html2canvas(element, {
+						scale: 2,
+						useCORS: true,
+						backgroundColor: '#ffffff',
+					})
+					
+					if (successCount > 0) pdf.addPage()
+					
+					const imgData = canvas.toDataURL('image/png')
+					const pdfWidth = pdf.internal.pageSize.getWidth()
+					const pdfHeight = pdf.internal.pageSize.getHeight()
+					
+					// Add a nice header to each page
+					pdf.setFillColor(16, 185, 129) // Emerald-500
+					pdf.rect(0, 0, pdfWidth, 20, 'F')
+					pdf.setTextColor(255, 255, 255)
+					pdf.setFontSize(14)
+					pdf.setFont('helvetica', 'bold')
+					pdf.text(`Meal Plan - ${mealTypes[i]}`, 10, 13)
+					
+					// Add the meal card image
+					const imgWidth = pdfWidth - 20
+					const imgHeight = (canvas.height * imgWidth) / canvas.width
+					pdf.addImage(imgData, 'PNG', 10, 25, imgWidth, imgHeight)
+					
+					// Add footer
+					pdf.setTextColor(150, 150, 150)
+					pdf.setFontSize(8)
+					pdf.setFont('helvetica', 'normal')
+					const dateStr = date?.toLocaleDateString('en-US', { 
+						weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+					})
+					pdf.text(`Generated for ${preferences?.email || 'User'} on ${dateStr}`, 10, pdfHeight - 10)
+					
+					successCount++
+				} catch (err) {
+					console.error(`Failed to render canvas for ${mealTypes[i]}:`, err)
+				}
+			}
+
+			if (successCount === 0) {
+				alert("Failed to generate PDF content. Please try again.")
+				return
 			}
 
 			const formattedDate = date?.toISOString().split('T')[0] || 'unknown_date'
-			const username = preferences?.username || 'User'
-			const filename = `Meal_Plan_${formattedDate}_${username}.pdf`
+			const userEmail = preferences?.email || 'User'
+			const filename = `Meal_Plan_${formattedDate}_${userEmail}.pdf`
 
 			if (!isShare) {
 				pdf.save(filename)
-				setPdfLoading(false)
 			} else {
 				const file = new File([pdf.output('blob')], filename, {
 					type: 'application/pdf',
 				})
-				navigator
-					.share({ files: [file], title: 'My Meal Plan', text: `Check out my meal plan for ${formattedDate}` })
-					.finally(() => setShareLoading(false))
+				await navigator.share({ 
+					files: [file], 
+					title: 'My Meal Plan', 
+					text: `Check out my meal plan for ${formattedDate}` 
+				})
 			}
+		} catch (err) {
+			console.error("PDF generation error:", err)
+			alert("An error occurred while generating the PDF.")
+		} finally {
+			setPdfLoading(false)
+			setShareLoading(false)
 		}
 	}
 

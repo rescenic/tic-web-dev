@@ -9,7 +9,9 @@ export default function MealToggle({ mealId, initialIsEaten }: { mealId: string,
   const [isEaten, setIsEaten] = useState(initialIsEaten);
   const [isPending, startTransition] = useTransition();
 
-  const handleToggle = () => {
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const nextState = !isEaten;
     setIsEaten(nextState);
     

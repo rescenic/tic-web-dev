@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { MealInsert } from "@/types/database";
 
 export async function syncMealsFromLocal(localData: any) {
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export async function syncMealsFromLocal(localData: any) {
     if (planError) throw planError;
 
     // 2. Prepare meals for insertion
-    const mealsToInsert: any[] = [];
+    const mealsToInsert: MealInsert[] = [];
     
     // Assuming localData.days is an array of 7 days
     if (localData.days && Array.isArray(localData.days)) {
@@ -36,7 +37,7 @@ export async function syncMealsFromLocal(localData: any) {
               mealsToInsert.push({
                 meal_plan_id: plan.id,
                 day_number: dayNumber,
-                meal_type: mealType,
+                meal_type: mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
                 name: meal.name,
                 description: meal.description || "",
                 calories: meal.calories || 0,
@@ -58,7 +59,11 @@ export async function syncMealsFromLocal(localData: any) {
       
       if (mealsError) {
         // Compensating logic: delete the orphan plan
-        await supabase.from("meal_plans").delete().eq("id", plan.id);
+        try {
+          await supabase.from("meal_plans").delete().eq("id", plan.id);
+        } catch (cleanupError) {
+          console.error(`Failed to cleanup orphan meal plan ${plan.id}:`, cleanupError);
+        }
         throw mealsError;
       }
     }
