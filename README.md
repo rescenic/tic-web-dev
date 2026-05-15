@@ -72,11 +72,64 @@ npm run dev
 
 The app will be available at `http://localhost:3001`.
 
+### 5. Price Tracking Scripts
+
+The project includes two scripts in the `scripts/` directory to manage grocery price data.
+
+#### A. Price Crawler (`price-crawler.js`)
+
+An automated script using Puppeteer to fetch real-time prices from Alfagift, KlikIndomaret, and Yogya Online.
+
+**Usage:**
+
+```bash
+# Crawl all unique items found in meal_groceries table
+node scripts/price-crawler.js
+
+# Crawl specific items only
+node scripts/price-crawler.js "Beras 5kg" "Minyak Goreng 2L"
+```
+
+**Known Challenges & Limitations:**
+
+- **Anti-Bot Protection**: Some stores (like KlikIndomaret) have heavy JS components and anti-bot measures that may require longer wait times or specific user agents.
+- **Login Blocks**: Stores like Yogya Online may occasionally block access with a login window or modal, preventing the crawler from reading prices.
+- **Stock Availability**: If an item is "Out of Stock" or "Tidak Tersedia", the crawler will skip it to avoid recording inaccurate data.
+- **Fuzzy Matching**: The script attempts to reduce keywords if no results are found, but highly specific or misspelled items in the database may still fail to match.
+
+#### B. Manual Price Sync (`manual-price-entry.js`)
+
+A utility script to "register" new grocery items into the system so you can fill in prices manually via the database dashboard.
+
+**Usage:**
+
+```bash
+node scripts/manual-price-entry.js
+```
+
+**How it works:**
+
+- It scans your `meal_groceries` for any items not yet present in the `product_prices` table.
+- It adds these new items with a default price of `0` and `store_name: "Manual"`.
+- **Note**: It will **not** overwrite any existing prices you have already entered manually.
+- After running this, simply go to your Supabase Dashboard to update the `0` values with real market prices.
+
+### 6. AI Models (The "Secret Sauce")
+
+This application uses an **AI-first** approach with a deliberately simple model configuration:
+
+- **Hardcoded Models**: AI models are directly integrated into the code ai.ts to ensure output consistency.
+- **Free Models Only**: To keep operational costs at Rp0, the application uses free-tier models:
+  - **Primary**: `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` via OpenRouter.
+  - **Fallback**: `gemini-1.5-flash` via Google AI Studio.
+- **Efficiency**: Despite using free models, system prompts have been optimized to generate accurate and nutritious meal plans.
+
 ## 🛠 Project Structure
 
 - `app/dashboard`: Main user interface for tracking meals and managing profile.
 - `app/form`: AI meal generation input form.
-- `lib/ai.ts`: Configuration for AI providers.
+- `lib/ai.ts`: Configuration for AI providers (Hardcoded Free Models).
+- `scripts`: Backend scripts for price tracking and data sync.
 - `utils/supabase`: Supabase client and server utilities.
 
 ## ✅ Completed Features
@@ -108,10 +161,11 @@ The app will be available at `http://localhost:3001`.
 - [x] Add progress visualizations for weekly goals.
 - [x] Ensure responsive design for mobile and desktop views.
 
-### Phase 5: Price Tracking & Crawler
+### Phase 5: Price Tracking & Manual Entry
 
 - [x] Create `product_prices` table to cache grocery prices from various stores.
 - [x] Implement Puppeteer-based crawler script to fetch real-time prices (Alfagift, KlikIndomaret, Yogya Online).
+- [x] **New**: Implement `manual-price-entry.js` for syncing items with default price 0 for manual dashboard entry.
 - [x] Add automated price estimation for grocery lists based on market data.
 
 ## 📦 Deployment
