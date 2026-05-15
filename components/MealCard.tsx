@@ -47,7 +47,7 @@ export function MealCard({
 
 	const swap = async () => {
 		setLoading(true)
-		const response = await ai.models
+		const response = await (ai.models as any)
 			.generateContent({
 				model: 'gemini-2.5-flash',
 				contents: `Regenerate 3 ${mealType} meal plan alternative with the following parameters:
