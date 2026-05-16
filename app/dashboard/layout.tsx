@@ -26,7 +26,7 @@ export default async function DashboardLayout({
         <div className="p-6 border-b border-emerald-50">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl text-emerald-800">
             <Utensils className="w-6 h-6 text-emerald-600" />
-            <span>MealPlanner</span>
+            <span>Weekly Meal Planner</span>
           </Link>
         </div>
         
@@ -72,7 +72,7 @@ export default async function DashboardLayout({
         <header className="md:hidden bg-white border-b border-emerald-100 p-4 sticky top-0 z-10 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg text-emerald-800">
             <Utensils className="w-5 h-5 text-emerald-600" />
-            <span>MealPlanner</span>
+            <span>Weekly Meal Planner</span>
           </Link>
           <MobileMenu email={user.email} />
         </header>

@@ -720,7 +720,7 @@ export default function Meals() {
 													<ul className='space-y-1.5'>
 														{meal.recipe.ingredients.map((item: string, i: number) => (
 															<li key={i} className='flex items-start gap-2 text-gray-700 text-sm'>
-																<span className='mt-1.5 w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0' />
+																<span className='mt-1.5 w-1.5 h-1.5 bg-emerald-400 rounded-full shrink-0' />
 																<span>{item}</span>
 															</li>
 														))}
@@ -741,7 +741,7 @@ export default function Meals() {
 													<ul className='space-y-3'>
 														{meal.instructions.map((step: string, i: number) => (
 															<li key={i} className='flex gap-3 text-gray-700 text-sm'>
-																<span className='flex-shrink-0 w-5 h-5 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold'>
+																<span className='shrink-0 w-5 h-5 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold'>
 																	{i + 1}
 																</span>
 																<span>{step}</span>

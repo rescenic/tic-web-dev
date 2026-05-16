@@ -255,7 +255,7 @@ export default function Grocery() {
 			const addFooter = () => {
 				pdf.setTextColor(150, 150, 150)
 				pdf.setFontSize(8)
-				pdf.text(`Generated for ${email} - MealPlanner AI`, pdfWidth / 2, pdfHeight - 10, { align: 'center' })
+				pdf.text(`Generated for ${email} - Weekly Meal Planner AI`, pdfWidth / 2, pdfHeight - 10, { align: 'center' })
 			}
 
 			// Paging logic

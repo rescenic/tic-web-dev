@@ -28,7 +28,7 @@ export default function MobileMenu({ email }: { email: string | undefined }) {
             <div className="p-6 border-b border-emerald-50 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2 font-bold text-xl text-emerald-800" onClick={() => setIsOpen(false)}>
                 <Utensils className="w-6 h-6 text-emerald-600" />
-                <span>MealPlanner</span>
+                <span>Weekly Meal Planner</span>
               </Link>
               <button 
                 onClick={() => setIsOpen(false)} 
