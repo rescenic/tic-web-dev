@@ -8,6 +8,7 @@ export async function register(prevState: any, formData: FormData) {
   const supabase = await createClient();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const firstName = formData.get("first_name") as string;
 
   if (!email || !password) {
     return { message: "Email and password are required." };
@@ -25,6 +26,9 @@ export async function register(prevState: any, formData: FormData) {
     password,
     options: {
       emailRedirectTo,
+      data: {
+        display_name: firstName || "",
+      },
     },
   });
 
